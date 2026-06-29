@@ -24,7 +24,7 @@ En este trabajo se analiza la correlación entre datos de imagen por resonancia 
 # Resultados
 Se usaron mapas de calor para estudiar las matrices de correlación entre los datos de electrofisiología (BAEPS audio y BAEPS neuro) y los datos estructurales mediante IRM. Además de los valores de las correlaciones, se mustran p-valores de las pruebas
 
-$$ H_0: Cor(X,Y) = 0   \quad vs \quad H_1: Cor(X,Y) != 0,
+$$ H_0: Cor(X,Y) = 0   \quad vs \quad H_1: Cor(X,Y) \neq 0,
 $$
 
 para cada posible par de variables. Los p-valores fueron filtrados para mostrar sólo los valores significativos (<0.05) antes y después de ajustar con FDR (False Discovery Rate).

@@ -17,3 +17,5 @@ Existe correlación entre los datos derivados de IRM en relación con la integri
 
 # Visualización gráfica 
 Se usaron mapas de calor para estudiar las matrices de correlación entre los datos de electrofisiología (BAEPS audio y BAEPS neuro) y los datos estructurales mediante IRM. 
+
+

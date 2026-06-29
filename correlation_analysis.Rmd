@@ -1,0 +1,422 @@
+---
+title: "MRI correlation analysis"
+output: 
+  html_document:
+    theme: cosmo
+    toc: yes
+    toc_float:
+      collapsed: true
+    number_sections: true
+---
+
+
+# Objective
+
+In this notebook, we analyze the correlation between the variables in the MRI, Audio and Neuro datasets. Pearson and Spearman correlations are calculted for each pair of variables that can be formed taking one MRI variable and one Audio or Neuro variable. Correlation hypothesis tests are also studied:
+$$ H_0: \text{Cor}(X,Y) = 0 \quad \text{vs} \quad H_1: \text{Cor}(X,Y) \neq 0
+$$
+
+```{r, warning = FALSE, message = FALSE}
+rm(list = ls())
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+
+source("cor_analysis_function.R")
+
+setwd("Data/")
+
+# BAEPS Audio data consolidation
+Audio.Y = read.csv("BAEPS audio jovenes.csv", header = TRUE)
+Audio.A = read.csv("BAEPS audio mayores.csv", header = TRUE)
+n1 = nrow(Audio.A)
+m1 = nrow(Audio.Y)
+Audio = rbind(Audio.Y, Audio.A)
+Audio.names = colnames(Audio)[-1]
+
+# BAEPS Neuro data consolidation
+Neuro.Y = read.csv("BAEPS neuro jovenes v2.csv", header = TRUE)
+Neuro.A = read.csv("BAEPS neuro mayores v2.csv", header = TRUE)
+n2 = nrow(Neuro.A)
+m2 = nrow(Neuro.Y)
+Neuro = rbind(Neuro.Y, Neuro.A)
+Neuro.names = colnames(Neuro)[-1]
+
+# MRI data consolidation
+MRI.Y = read.csv("MRI jovenes v2.csv", header = TRUE)
+m3 = nrow(MRI.Y)
+Participant = as.factor(rep("Young", m3))
+MRI.Y = cbind(MRI.Y, Participant)
+MRI.A = read.csv("MRI mayores v2.csv", header = TRUE)
+n3 = nrow(MRI.A)
+Participant = as.factor(rep("Adult", n3))
+MRI.A = cbind(MRI.A, Participant)
+MRI = rbind(MRI.Y, MRI.A)
+MRI.names = colnames(MRI)[2:(ncol(MRI)-1)]
+
+# Merge the MRI dataset with the other two and remove NA's
+D1 = merge(MRI, Audio, by = "SUJETOS", all = TRUE)
+D2 = merge(MRI, Neuro, by = "SUJETOS", all = TRUE)
+D1 = na.omit(D1)
+D2 = na.omit(D2)
+```
+
+
+# MRI vs Audio analysis
+
+We start analyzing correlation of the MRI variables and the BAEPS Audio variables. Three cases are considered: correlation using all subjects (adult + young), adults only and youngs only.
+
+```{r, warning=FALSE, message = FALSE }
+# MRI vs Audio analysis
+adult.index1 <- which(D1$Participant == "Adult")
+young.index1 <- which(D1$Participant == "Young")
+Audio.all <- correlation.analysis(D1, MRI.names, Audio.names)
+Audio.adult <- correlation.analysis(D1[adult.index1, ], MRI.names, Audio.names)
+Audio.young <- correlation.analysis(D1[young.index1, ], MRI.names, Audio.names)
+```
+
+## Adult and young individuals combined
+
+First, we analyze the case where data of young and adult individuals are combined and treated as one group with 43 observations. Correlation for each pair of variables can be visualized as heatmaps where colors are interpreted as follows:
+
+- red: negative correlation;
+- blue: positive correlation;
+- white: zero correlation.
+
+```{r}
+(fig.pearson.audio <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.all$P, type = "heatmap", colors = "RdBu")) %>%
+  layout(title = 'Pearson correlation: MRI vs Audio')
+
+(fig.spearman.audio <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.all$S, type = "heatmap", colors = "RdBu")%>%
+  layout(title = 'Spearman correlation: MRI vs Audio'))
+```
+
+Correlation test p-values can be also visualized as heatmaps.
+
+```{r}
+(fig.pearson.audio.test <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.all$P.test, type = "heatmap", colors = "PuRd")) %>%
+  layout(title = 'Pearson correlation test p-values: MRI vs Audio')
+
+(fig.spearman.audio.test <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.all$S.test, type = "heatmap", colors = "PuRd")%>%
+    layout(title = 'Spearman correlation test p-values: MRI vs Audio'))
+```
+
+The following plots show p-values that are lower than 0.05, which can be considered as significant correlations before and after adjusting by FDR.
+
+```{r}
+(fig.pearson.audio.test.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.all$P.test<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values: MRI vs Audio'))
+
+(fig.pearson.audio.test.adj.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.all$P.test.adj<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values adjusted: MRI vs Audio'))
+
+(fig.spearman.audio.test.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.all$S.test<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values: MRI vs Audio'))
+
+(fig.spearman.audio.test.adj.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.all$S.test.adj<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values adjusted: MRI vs Audio'))
+```
+
+## Adults only
+
+Now we analyze only the data of the 16 adult individuals.
+
+```{r}
+(fig.pearson.audio <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.adult$P, type = "heatmap", colors = "RdBu")) %>%
+  layout(title = 'Pearson correlation for adults: MRI vs Audio')
+
+(fig.spearman.audio <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.adult$S, type = "heatmap", colors = "RdBu")%>%
+  layout(title = 'Spearman correlation for adults: MRI vs Audio'))
+```
+
+Correlation test p-values.
+
+```{r}
+(fig.pearson.audio.test <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.adult$P.test, type = "heatmap", colors = "PuRd")) %>%
+  layout(title = 'Pearson correlation test p-values for adults: MRI vs Audio')
+
+(fig.spearman.audio.test <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.adult$S.test, type = "heatmap", colors = "PuRd")%>%
+    layout(title = 'Spearman correlation test p-values for adults: MRI vs Audio'))
+```
+
+Significant (>0.05) correlations before and after adjusting by FDR.
+
+```{r}
+(fig.pearson.audio.test.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.adult$P.test<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values for adults: MRI vs Audio'))
+
+(fig.pearson.audio.test.adj.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.adult$P.test.adj<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values adjusted for adults: MRI vs Audio'))
+
+(fig.spearman.audio.test.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.adult$S.test<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values for adults: MRI vs Audio'))
+
+(fig.spearman.audio.test.adj.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.adult$S.test.adj<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values adjusted for adults: MRI vs Audio'))
+```
+
+
+## Youngs only
+
+Now we analyze only the data of the 27 young individuals.
+
+```{r}
+(fig.pearson.audio <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.young$P, type = "heatmap", colors = "RdBu")) %>%
+  layout(title = 'Pearson correlation for youngs: MRI vs Audio')
+
+(fig.spearman.audio <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.young$S, type = "heatmap", colors = "RdBu")%>%
+  layout(title = 'Spearman correlation for youngs: MRI vs Audio'))
+```
+
+Correlation test p-values.
+
+```{r}
+(fig.pearson.audio.test <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.young$P.test, type = "heatmap", colors = "PuRd")) %>%
+  layout(title = 'Pearson correlation test p-values for youngs: MRI vs Audio')
+
+(fig.spearman.audio.test <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = Audio.young$S.test, type = "heatmap", colors = "PuRd")%>%
+    layout(title = 'Spearman correlation test p-values for youngs: MRI vs Audio'))
+```
+
+Significant (>0.05) correlations before and after adjusting by FDR.
+
+```{r}
+(fig.pearson.audio.test.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.young$P.test<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values for youngs: MRI vs Audio'))
+
+(fig.pearson.audio.test.adj.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.young$P.test.adj<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values adjusted for youngs: MRI vs Audio'))
+
+(fig.spearman.audio.test.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.young$S.test<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values for youngs: MRI vs Audio'))
+
+(fig.spearman.audio.test.adj.s <- plot_ly(
+  x = Audio.names, y = MRI.names,
+  z = (Audio.young$S.test.adj<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values adjusted for youngs: MRI vs Audio'))
+```
+
+
+# MRI vs Neuro analysis
+
+In this section, we analyze correlation of the MRI variables and the BAEPS Neuro variables. 
+
+```{r, warning=FALSE, message = FALSE }
+# MRI vs Neuro analysis
+adult.index2 <- which(D2$Participant == "Adult")
+young.index2 <- which(D2$Participant == "Young")
+Neuro.all <- correlation.analysis(D2, MRI.names, Neuro.names)
+Neuro.adult <- correlation.analysis(D2[adult.index2, ], MRI.names, Neuro.names)
+Neuro.young <- correlation.analysis(D2[young.index2, ], MRI.names, Neuro.names)
+```
+
+## Adult and young individuals combined
+
+Correlation values for the 44 individuals that have full Nuro records.
+
+```{r}
+(fig.pearson.Neuro <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.all$P, type = "heatmap", colors = "RdBu")) %>%
+  layout(title = 'Pearson correlation: MRI vs Neuro')
+
+(fig.spearman.Neuro <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.all$S, type = "heatmap", colors = "RdBu")%>%
+  layout(title = 'Spearman correlation: MRI vs Neuro'))
+```
+
+Correlation test p-values.
+
+```{r}
+(fig.pearson.Neuro.test <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.all$P.test, type = "heatmap", colors = "PuRd")) %>%
+  layout(title = 'Pearson correlation test p-values: MRI vs Neuro')
+
+(fig.spearman.Neuro.test <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.all$S.test, type = "heatmap", colors = "PuRd")%>%
+    layout(title = 'Spearman correlation test p-values: MRI vs Neuro'))
+```
+
+Significant (>0.05) correlations before and after adjusting by FDR.
+
+```{r}
+(fig.pearson.Neuro.test.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.all$P.test<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values: MRI vs Neuro'))
+
+(fig.pearson.Neuro.test.adj.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.all$P.test.adj<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values adjusted: MRI vs Neuro'))
+
+(fig.spearman.Neuro.test.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.all$S.test<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values: MRI vs Neuro'))
+
+(fig.spearman.Neuro.test.adj.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.all$S.test.adj<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values adjusted: MRI vs Neuro'))
+```
+
+## Adults only
+
+Now we analyze only the data of the 16 adult individuals.
+
+```{r}
+(fig.pearson.Neuro <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.adult$P, type = "heatmap", colors = "RdBu")) %>%
+  layout(title = 'Pearson correlation for adults: MRI vs Neuro')
+
+(fig.spearman.Neuro <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.adult$S, type = "heatmap", colors = "RdBu")%>%
+  layout(title = 'Spearman correlation for adults: MRI vs Neuro'))
+```
+
+Correlation test p-values.
+
+```{r}
+(fig.pearson.Neuro.test <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.adult$P.test, type = "heatmap", colors = "PuRd")) %>%
+  layout(title = 'Pearson correlation test p-values for adults: MRI vs Neuro')
+
+(fig.spearman.Neuro.test <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.adult$S.test, type = "heatmap", colors = "PuRd")%>%
+    layout(title = 'Spearman correlation test p-values for adults: MRI vs Neuro'))
+```
+
+Significant (>0.05) correlations before and after adjusting by FDR.
+
+```{r}
+(fig.pearson.Neuro.test.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.adult$P.test<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values for adults: MRI vs Neuro'))
+
+(fig.pearson.Neuro.test.adj.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.adult$P.test.adj<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values adjusted for adults: MRI vs Neuro'))
+
+(fig.spearman.Neuro.test.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.adult$S.test<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values for adults: MRI vs Neuro'))
+
+(fig.spearman.Neuro.test.adj.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.adult$S.test.adj<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values adjusted for adults: MRI vs Neuro'))
+```
+
+
+## Youngs only
+
+Now we analyze only the data of the 28 young individuals.
+
+```{r}
+(fig.pearson.Neuro <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.young$P, type = "heatmap", colors = "RdBu")) %>%
+  layout(title = 'Pearson correlation for youngs: MRI vs Neuro')
+
+(fig.spearman.Neuro <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.young$S, type = "heatmap", colors = "RdBu")%>%
+  layout(title = 'Spearman correlation for youngs: MRI vs Neuro'))
+```
+
+Correlation test p-values.
+
+```{r}
+(fig.pearson.Neuro.test <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.young$P.test, type = "heatmap", colors = "PuRd")) %>%
+  layout(title = 'Pearson correlation test p-values for youngs: MRI vs Neuro')
+
+(fig.spearman.Neuro.test <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = Neuro.young$S.test, type = "heatmap", colors = "PuRd")%>%
+    layout(title = 'Spearman correlation test p-values for youngs: MRI vs Neuro'))
+```
+
+Significant (>0.05) correlations before and after adjusting by FDR.
+
+```{r}
+(fig.pearson.Neuro.test.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.young$P.test<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values for youngs: MRI vs Neuro'))
+
+(fig.pearson.Neuro.test.adj.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.young$P.test.adj<=0.05)*1, type = "heatmap", colors = "Blues") %>%
+  layout(title = 'Pearson cor-test p-values adjusted for youngs: MRI vs Neuro'))
+
+(fig.spearman.Neuro.test.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.young$S.test<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values for youngs: MRI vs Neuro'))
+
+(fig.spearman.Neuro.test.adj.s <- plot_ly(
+  x = Neuro.names, y = MRI.names,
+  z = (Neuro.young$S.test.adj<=0.05)*1, type = "heatmap", colors = "Blues")%>%
+    layout(title = 'Spearman cor-test p-values adjusted for youngs: MRI vs Neuro'))
+```
+
+
